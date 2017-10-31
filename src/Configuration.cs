@@ -115,13 +115,14 @@ namespace GoogleDomainsDdnsSvc
 
     public class DomainConfigElement : ConfigurationElement
     {
-        public DomainConfigElement(string hostname, string username, string password, double longDelay = 86400000, double shortDelay = 600000)
+        public DomainConfigElement(string hostname, string username, string password, double longDelay = 86400000, double shortDelay = 600000, bool useIPv4 = true)
         {
             HostName = hostname;
             UserName = username;
             Password = password;
             LongDelay = longDelay;
             ShortDelay = shortDelay;
+            UseIPv4 = useIPv4;
         }
 
         public DomainConfigElement()
@@ -192,6 +193,19 @@ namespace GoogleDomainsDdnsSvc
             set
             {
                 this["shortDelay"] = value;
+            }
+        }
+
+        [ConfigurationProperty("useIPv4", DefaultValue = (bool)true, IsRequired = false)]
+        public bool UseIPv4
+        {
+            get
+            {
+                return (bool)this["useIPv4"];
+            }
+            set
+            {
+                this["useIPv4"] = value;
             }
         }
 

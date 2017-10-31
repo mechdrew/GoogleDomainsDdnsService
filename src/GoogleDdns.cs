@@ -5,7 +5,8 @@ using System.ComponentModel;
 using System.Configuration;
 using System.Configuration.Install;
 using System.Diagnostics;
-using System.Net.Http;
+using System.IO;
+using System.Net;
 using System.ServiceProcess;
 using System.Text;
 
@@ -69,20 +70,32 @@ namespace GoogleDomainsDdnsSvc
                 string response = string.Empty;
                 string content = string.Empty;
 
-                using (var client = new HttpClient())
+                
+                HttpWebRequest request = HttpWebRequest.Create("https://domains.google.com/nic/update?hostname=" + domain.HostName) as HttpWebRequest;
+                request.Method = "GET";
+                request.PreAuthenticate = true;
+                var byteArray = Encoding.ASCII.GetBytes(domain.UserName + ":" + domain.Password);
+                request.Headers.Add(System.Net.HttpRequestHeader.Authorization, "Basic " + Convert.ToBase64String(byteArray));
+
+                if (domain.UseIPv4)
                 {
-                    HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Get, "https://domains.google.com/nic/update?hostname=" + domain.HostName);
-                    var byteArray = Encoding.ASCII.GetBytes(domain.UserName + ":" + domain.Password);
-                    request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Basic", Convert.ToBase64String(byteArray));
-                    request.Headers.UserAgent.ParseAdd("Chrome/57.0.2987.133");
+                    request.ServicePoint.BindIPEndPointDelegate = (servicePount, remoteEndPoint, retryCount) =>
+                    {
+                        if (remoteEndPoint.AddressFamily == System.Net.Sockets.AddressFamily.InterNetworkV6)
+                        {
+                            return new IPEndPoint(IPAddress.IPv6Any, 0);
+                        }
 
-                    var task = client.SendAsync(request);
-                    task.Wait();
-
-                    content = task.Result.Content.ReadAsStringAsync().Result;
-                    response = content.Split(' ')[0];
+                        throw new InvalidOperationException("No IPv4 address available.");
+                    };
                 }
+                var task = request.GetResponse();
+                var responseStream = task.GetResponseStream();
+                if (responseStream == null) return;
 
+                content = new StreamReader(responseStream, Encoding.Default).ReadToEnd();
+                response = content.Split(' ')[0];
+                
                 switch (response)
                 {
                     case "good":
